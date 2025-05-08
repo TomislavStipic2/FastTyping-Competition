@@ -1,41 +1,495 @@
-function endCompetition(name) {
-    clearInterval(timer);
-    document.getElementById('typing-container').style.display = 'none';
-    
-    const inputText = document.getElementById('text-input').value;
-    
-    // Brojanje točno upisanih riječi
-    const typedWords = inputText.trim().split(/\s+/);
-    const originalWords = currentText.trim().split(/\s+/);
-    
-    let correctWords = 0;
-    const minLength = Math.min(typedWords.length, originalWords.length);
-    for (let i = 0; i < minLength; i++) {
-        if (typedWords[i] === originalWords[i]) {
-            correctWords++;
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Natjecanje u Brzom Tipkanju</title>
+    <style>
+        :root {
+            --primary: #6c63ff;
+            --primary-light: #a29bfe;
+            --secondary: #00cec9;
+            --background: #f9f9ff;
+            --card-bg: #ffffff;
+            --text: #333344;
+            --text-light: #777788;
+            --correct: #2ecc71;
+            --incorrect: #e74c3c;
+            --highlight: #fff9c4;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
         }
-    }
-    
-    // Izračun stvarnog vremena tipkanja (u minutama)
-    const endTime = new Date();
-    const timeSpentMinutes = (endTime - startTime) / 60000; // pretvori u minute
-    
-    // Izračun WPM (riječi po minuti)
-    const wpm = timeSpentMinutes > 0 ? Math.round(correctWords / timeSpentMinutes) : 0;
-    
-    // Prikaz rezultata
-    document.getElementById('results').style.display = 'block';
-    document.getElementById('result-name').textContent = name;
-    document.getElementById('wpm').textContent = wpm;
-    
-    // Dodavanje na ljestvicu
-    leaderboard.push({ name, wpm });
-    leaderboard.sort((a, b) => b.wpm - a.wpm);
-    leaderboard = leaderboard.slice(0, 10); // Zadrži samo top 10
-    
-    // Spremanje u localStorage
-    localStorage.setItem('typingLeaderboard', JSON.stringify(leaderboard));
-    
-    updateLeaderboard();
-    document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
-}
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        h1, h2, h3 {
+            color: var(--primary);
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            text-align: center;
+            margin: 2rem 0;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border 0.3s ease;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary-light);
+        }
+        
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(108, 99, 255, 0.2);
+        }
+        
+        button:hover {
+            background-color: var(--primary-light);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(108, 99, 255, 0.3);
+        }
+        
+        #typing-container {
+            display: none;
+        }
+        
+        #text-display {
+            font-size: 1.4rem;
+            line-height: 2;
+            margin: 2rem 0;
+            padding: 1.5rem;
+            border-radius: 12px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            min-height: 160px;
+            text-align: left;
+        }
+        
+        #timer {
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--primary);
+            margin: 1rem 0;
+            background: rgba(108, 99, 255, 0.1);
+            display: inline-block;
+            padding: 0.5rem 1.5rem;
+            border-radius: 50px;
+        }
+        
+        .correct {
+            color: var(--correct);
+        }
+        
+        .incorrect {
+            color: var(--incorrect);
+            text-decoration: underline;
+        }
+        
+        .current {
+            background-color: var(--highlight);
+            border-radius: 3px;
+        }
+        
+        #results {
+            display: none;
+        }
+        
+        .result-stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 2rem 0;
+        }
+        
+        .stat-box {
+            text-align: center;
+            padding: 1.5rem;
+            border-radius: 12px;
+            background: rgba(108, 99, 255, 0.05);
+            flex: 1;
+            margin: 0 0.5rem;
+        }
+        
+        .stat-box h3 {
+            color: var(--primary);
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-box p {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 1rem;
+        }
+        
+        th {
+            background-color: var(--primary);
+            color: white;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 500;
+        }
+        
+        th:first-child {
+            border-top-left-radius: 8px;
+        }
+        
+        th:last-child {
+            border-top-right-radius: 8px;
+        }
+        
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        tr:hover td {
+            background-color: rgba(108, 99, 255, 0.03);
+        }
+        
+        .rank-1 {
+            font-weight: bold;
+            color: var(--primary);
+        }
+        
+        .rank-1 td:first-child::before {
+            content: "🥇";
+            margin-right: 8px;
+        }
+        
+        .rank-2 td:first-child::before {
+            content: "🥈";
+            margin-right: 8px;
+        }
+        
+        .rank-3 td:first-child::before {
+            content: "🥉";
+            margin-right: 8px;
+        }
+        
+        .restart-btn {
+            margin-top: 20px;
+            background-color: var(--secondary);
+        }
+        
+        .restart-btn:hover {
+            background-color: #00b5b2;
+        }
+        
+        @media (max-width: 768px) {
+            .card {
+                padding: 1.5rem;
+            }
+            
+            .result-stats {
+                flex-direction: column;
+            }
+            
+            .stat-box {
+                margin: 0.5rem 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Natjecanje u Brzom Tipkanju</h1>
+        
+        <div class="card" id="name-input">
+            <div class="form-group">
+                <label for="name">Unesite svoje ime</label>
+                <input type="text" id="name" placeholder="Vaše ime">
+            </div>
+            <button onclick="startCompetition()">Započni Natjecanje</button>
+        </div>
+        
+        <div class="card" id="typing-container">
+            <div id="timer">30</div>
+            <div id="text-display"></div>
+            <div class="form-group">
+                <input type="text" id="text-input" placeholder="Počnite tipkati ovdje..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            </div>
+        </div>
+        
+        <div class="card" id="results">
+            <h2>Vaši Rezultati</h2>
+            <div class="result-stats">
+                <div class="stat-box">
+                    <h3>Ime</h3>
+                    <p id="result-name"></p>
+                </div>
+                <div class="stat-box">
+                    <h3>Brzina</h3>
+                    <p id="wpm">0 <small>RPM</small></p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card" id="leaderboard">
+            <h2>Ljestvica</h2>
+            <table id="leaderboard-table">
+                <thead>
+                    <tr>
+                        <th>Rang</th>
+                        <th>Ime</th>
+                        <th>RPM</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Ljestvica će biti popunjena ovdje -->
+                </tbody>
+            </table>
+            <button class="restart-btn" onclick="resetCompetition()">Pokušaj Ponovo</button>
+        </div>
+    </div>
+
+    <script>
+        // Primjeri tekstova za tipkanje
+        const sampleTexts = [
+            "Brza smeđa lisica skače preko lijenog psa. Pakiraj moju kutiju s pet desetina vrčeva za piće. Kako dosadno brzi luckasti zebri skaču!",
+            "Programiranje je umijeće objašnjavanja drugom čovjeku što želimo da računalo napravi. Dobar kod je sam sebi najbolja dokumentacija.",
+            "Biti ili ne biti, to je pitanje. Je li plemenitije u duši trpjeti udarce i strijele razjarene sreće.",
+            "Najveća slava u životu nije nikad pasti, već ustati svaki put kad padnemo. Način da započnete je prestati pričati i početi raditi.",
+            "Život je ono što se događa dok ste zauzeti pravljenjem drugih planova. Širite ljubav gdje god idete. Neka nitko nikad ne dođe k vama a da ne ode sretniji."
+        ];
+        
+        let currentText = "";
+        let timer;
+        let timeLeft = 30;
+        let isTypingStarted = false;
+        let leaderboard = JSON.parse(localStorage.getItem('typingLeaderboard')) || [];
+        
+        function startCompetition() {
+            const name = document.getElementById('name').value.trim();
+            if (!name) {
+                alert("Molimo unesite svoje ime");
+                return;
+            }
+            
+            document.getElementById('name-input').style.display = 'none';
+            document.getElementById('typing-container').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('text-input').value = '';
+            document.getElementById('text-input').focus();
+            
+            // Odabir nasumičnog teksta
+            currentText = sampleTexts[Math.floor(Math.random() * sampleTexts.length)];
+            displayText();
+            
+            // Resetiranje vremena (ali ne počinje odmah)
+            timeLeft = 30;
+            updateTimer();
+            isTypingStarted = false;
+            
+            // Postavljanje event listenera za početak tipkanja
+            const textInput = document.getElementById('text-input');
+            textInput.removeEventListener('input', handleTyping);
+            textInput.addEventListener('input', handleFirstKeyPress);
+        }
+        
+        function handleFirstKeyPress() {
+            if (!isTypingStarted) {
+                isTypingStarted = true;
+                const textInput = document.getElementById('text-input');
+                textInput.removeEventListener('input', handleFirstKeyPress);
+                textInput.addEventListener('input', handleTyping);
+                
+                // Pokretanje štoperice tek nakon što korisnik počne tipkati
+                timer = setInterval(() => {
+                    timeLeft--;
+                    updateTimer();
+                    if (timeLeft <= 0) {
+                        const name = document.getElementById('name').value.trim();
+                        endCompetition(name);
+                    }
+                }, 1000);
+            }
+        }
+        
+        function handleTyping(e) {
+            const inputText = e.target.value;
+            const inputLength = inputText.length;
+            
+            // Resetiranje svih klasa znakova
+            for (let i = 0; i < currentText.length; i++) {
+                const charSpan = document.getElementById(`char-${i}`);
+                charSpan.className = '';
+                
+                // Označavanje znakova koji su već upisani
+                if (i < inputLength) {
+                    if (inputText[i] === currentText[i]) {
+                        charSpan.classList.add('correct');
+                    } else {
+                        charSpan.classList.add('incorrect');
+                    }
+                }
+            }
+            
+            // Označavanje trenutne pozicije (ako nismo na kraju)
+            if (inputLength < currentText.length) {
+                document.getElementById(`char-${inputLength}`).classList.add('current');
+            }
+        }
+        
+        function updateTimer() {
+            document.getElementById('timer').textContent = timeLeft;
+        }
+        
+        function displayText() {
+            const textDisplay = document.getElementById('text-display');
+            textDisplay.innerHTML = '';
+            
+            for (let i = 0; i < currentText.length; i++) {
+                const span = document.createElement('span');
+                span.textContent = currentText[i];
+                span.id = `char-${i}`;
+                textDisplay.appendChild(span);
+            }
+        }
+        
+        function endCompetition(name) {
+            clearInterval(timer);
+            document.getElementById('typing-container').style.display = 'none';
+            
+            const inputText = document.getElementById('text-input').value;
+            let correctCount = 0;
+            
+            for (let i = 0; i < inputText.length && i < currentText.length; i++) {
+                if (inputText[i] === currentText[i]) {
+                    correctCount++;
+                }
+            }
+            
+            // Računanje riječi (pretpostavka: 5 znakova = 1 riječ)
+            const wordsTyped = Math.floor(correctCount / 5);
+            const rpm = wordsTyped * 2; // Budući da se tipkalo 30 sekundi
+            
+            // Prikaz rezultata
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('result-name').textContent = name;
+            document.getElementById('wpm').textContent = rpm;
+            
+            // Dodavanje na ljestvicu
+            leaderboard.push({ name, rpm });
+            leaderboard.sort((a, b) => b.rpm - a.rpm);
+            if (leaderboard.length > 10) {
+                leaderboard = leaderboard.slice(0, 10);
+            }
+            
+            // Spremanje u localStorage
+            localStorage.setItem('typingLeaderboard', JSON.stringify(leaderboard));
+            
+            // Ažuriranje ljestvice
+            updateLeaderboard();
+            
+            // Automatsko pomicanje do rezultata
+            document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function resetCompetition() {
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('name-input').style.display = 'block';
+            document.getElementById('name').focus();
+            clearInterval(timer);
+        }
+        
+        function updateLeaderboard() {
+            const tbody = document.querySelector('#leaderboard-table tbody');
+            tbody.innerHTML = '';
+            
+            leaderboard.forEach((entry, index) => {
+                const row = document.createElement('tr');
+                if (index === 0) row.className = 'rank-1';
+                if (index === 1) row.className = 'rank-2';
+                if (index === 2) row.className = 'rank-3';
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${entry.name}</td>
+                    <td>${entry.rpm}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        
+        // Inicijalizacija ljestvice pri učitavanju stranice
+        updateLeaderboard();
+        
+        // Omogućavanje pokretanja pritiskom na Enter u polju za ime
+        document.getElementById('name').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                startCompetition();
+            }
+        });
+    </script>
+</body>
+</html>
