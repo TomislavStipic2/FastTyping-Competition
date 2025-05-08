@@ -1,0 +1,41 @@
+function endCompetition(name) {
+    clearInterval(timer);
+    document.getElementById('typing-container').style.display = 'none';
+    
+    const inputText = document.getElementById('text-input').value;
+    
+    // Brojanje točno upisanih riječi
+    const typedWords = inputText.trim().split(/\s+/);
+    const originalWords = currentText.trim().split(/\s+/);
+    
+    let correctWords = 0;
+    const minLength = Math.min(typedWords.length, originalWords.length);
+    for (let i = 0; i < minLength; i++) {
+        if (typedWords[i] === originalWords[i]) {
+            correctWords++;
+        }
+    }
+    
+    // Izračun stvarnog vremena tipkanja (u minutama)
+    const endTime = new Date();
+    const timeSpentMinutes = (endTime - startTime) / 60000; // pretvori u minute
+    
+    // Izračun WPM (riječi po minuti)
+    const wpm = timeSpentMinutes > 0 ? Math.round(correctWords / timeSpentMinutes) : 0;
+    
+    // Prikaz rezultata
+    document.getElementById('results').style.display = 'block';
+    document.getElementById('result-name').textContent = name;
+    document.getElementById('wpm').textContent = wpm;
+    
+    // Dodavanje na ljestvicu
+    leaderboard.push({ name, wpm });
+    leaderboard.sort((a, b) => b.wpm - a.wpm);
+    leaderboard = leaderboard.slice(0, 10); // Zadrži samo top 10
+    
+    // Spremanje u localStorage
+    localStorage.setItem('typingLeaderboard', JSON.stringify(leaderboard));
+    
+    updateLeaderboard();
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+}
